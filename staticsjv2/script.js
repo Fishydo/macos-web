@@ -245,7 +245,14 @@ async function initializeBrowser() {
             </div>
         </div>`;
 
-    // Cache DOM elements
+    const embeddedMode = new URLSearchParams(window.location.search).has('embedded');
+
+    if (embeddedMode) {
+        document.querySelector('.tabs')?.remove();
+        document.querySelector('.nav')?.remove();
+        document.querySelector('.loading-bar-container')?.remove();
+    }
+
     const elements = {
         backBtn: document.getElementById('back-btn'),
         fwdBtn: document.getElementById('fwd-btn'),
@@ -254,13 +261,14 @@ async function initializeBrowser() {
         skipBtn: document.getElementById('skip-btn')
     };
 
-    // Bind navigation events
-    elements.backBtn.onclick = () => getActiveTab()?.frame.back();
-    elements.fwdBtn.onclick = () => getActiveTab()?.frame.forward();
-    elements.reloadBtn.onclick = () => getActiveTab()?.frame.reload();
-    document.getElementById('home-btn-nav').onclick = () => window.location.href = '../index.html';
-    document.getElementById('devtools-btn').onclick = toggleDevTools;
-    document.getElementById('wisp-settings-btn').onclick = openSettings;
+    if (!embeddedMode) {
+        elements.backBtn.onclick = () => getActiveTab()?.frame.back();
+        elements.fwdBtn.onclick = () => getActiveTab()?.frame.forward();
+        elements.reloadBtn.onclick = () => getActiveTab()?.frame.reload();
+        document.getElementById('home-btn-nav').onclick = () => window.location.href = '../index.html';
+        document.getElementById('devtools-btn').onclick = toggleDevTools;
+        document.getElementById('wisp-settings-btn').onclick = openSettings;
+    }
 
     // Skip button logic
     elements.skipBtn.onclick = () => {
@@ -272,8 +280,10 @@ async function initializeBrowser() {
     };
 
     // Address bar events
-    elements.addrBar.onkeyup = (e) => e.key === 'Enter' && handleSubmit();
-    elements.addrBar.onfocus = () => elements.addrBar.select();
+    if (elements.addrBar) {
+        elements.addrBar.onkeyup = (e) => e.key === 'Enter' && handleSubmit();
+        elements.addrBar.onfocus = () => elements.addrBar.select();
+    }
 
     // Handle navigation messages
     window.addEventListener('message', (e) => {
@@ -455,7 +465,8 @@ function updateAddressBar() {
 
 function handleSubmit(url) {
     const tab = getActiveTab();
-    let input = url ?? document.getElementById("address-bar").value.trim();
+    const addressEl = document.getElementById("address-bar");
+    let input = url ?? addressEl?.value?.trim?.() ?? '';
     if (!input) return;
 
     if (!input.startsWith('http')) {
