@@ -13,7 +13,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { sineInOut } from 'svelte/easing';
 	import { elevation } from '🍎/actions';
-	import { apps_config } from '🍎/configs/apps/apps-config.ts';
+	import { get_all_apps_config } from '🍎/configs/apps/apps-config.ts';
 	import { rand_int } from '🍎/helpers/random.ts';
 	import { sleep } from '🍎/helpers/sleep';
 	import { apps, type AppID } from '🍎/state/apps.svelte.ts';
@@ -31,9 +31,11 @@
 
 	let windowEl = $state<HTMLElement>();
 
-	const { height, width } = apps_config[app_id];
+	const appConfig = $derived(get_all_apps_config()[app_id]);
+	const height = $derived(appConfig?.height ?? 500);
+	const width = $derived(appConfig?.width ?? 600);
 
-	const remModifier = +height * 1.2 >= window.innerHeight ? 24 : 16;
+	const remModifier = $derived(+height * 1.2 >= window.innerHeight ? 24 : 16);
 
 	const randX = rand_int(-600, 600);
 	const randY = rand_int(-100, 100);
