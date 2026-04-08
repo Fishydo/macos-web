@@ -97,15 +97,33 @@
             return scramjetInstance;
         }
 
+        function getWispCandidates() {
+            const customWisps = JSON.parse(localStorage.getItem('customWisps') || '[]').map((entry) => entry.url || entry);
+            const configuredWisps = WISP_SERVERS.map((entry) => entry.url || entry);
+            const current = localStorage.getItem('proxServer') || DEFAULT_WISP;
+            return [...new Set([current, DEFAULT_WISP, ...configuredWisps, ...customWisps].filter(Boolean))];
+        }
+
         async function initializeConnection() {
             if (connectionInstance) return connectionInstance;
 
             const basePath = location.pathname.replace(/[^/]*$/, '') + '/';
-            const wispUrl = localStorage.getItem("proxServer") || DEFAULT_WISP;
+            const candidates = getWispCandidates();
+            let lastError = null;
 
-            connectionInstance = new BareMux.BareMuxConnection(basePath + "bareworker.js");
-            await connectionInstance.setTransport("https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs", [{ wisp: wispUrl }]);
-            return connectionInstance;
+            for (const wispUrl of candidates) {
+                try {
+                    const nextConnection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
+                    await nextConnection.setTransport("https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs", [{ wisp: wispUrl }]);
+                    connectionInstance = nextConnection;
+                    localStorage.setItem('proxServer', wispUrl);
+                    return connectionInstance;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw lastError || new Error('No working wisp server found');
         }
 
         async function registerServiceWorker() {

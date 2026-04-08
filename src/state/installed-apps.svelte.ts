@@ -9,6 +9,12 @@ export type InstalledWebApp = {
 	icon: string;
 };
 
+export type WebAppInstallOptions = {
+	id?: string;
+	appname?: string;
+	imageurl?: string;
+};
+
 export const installed_web_apps = persisted('installed-web-apps', [] as InstalledWebApp[]);
 
 const sanitize = (value: string) =>
@@ -25,25 +31,26 @@ export const to_installable_url = (value: string) => {
 	return new URL(normalized).toString();
 };
 
-export const create_web_app = (value: string): InstalledWebApp => {
+export const create_web_app = (value: string, options: WebAppInstallOptions = {}): InstalledWebApp => {
 	const url = to_installable_url(value);
 	const parsed = new URL(url);
 	const cleanHost = sanitize(parsed.hostname || parsed.host || url);
-	const id = `webapp-${cleanHost || `site-${Date.now()}`}`;
-	const title = cleanHost || parsed.hostname || 'Web App';
+	const id = options.id ? sanitize(options.id) : `webapp-${cleanHost || `site-${Date.now()}`}`;
+	const title = options.appname?.trim() || cleanHost || parsed.hostname || 'Web App';
 	const proxy_url = `/staticsjv2/embed.html#${url}`;
+	const icon = options.imageurl?.trim() || '/app-icons/safari/256.webp';
 
 	return {
-		id,
+		id: id.startsWith('webapp-') ? id : `webapp-${id}`,
 		title,
 		url,
 		proxy_url,
-		icon: '/app-icons/safari/256.webp',
+		icon,
 	};
 };
 
-export const install_web_app = (value: string) => {
-	const next = create_web_app(value);
+export const install_web_app = (value: string, options: WebAppInstallOptions = {}) => {
+	const next = create_web_app(value, options);
 	const existingIndex = installed_web_apps.findIndex((app) => app.id === next.id);
 
 	if (existingIndex >= 0) {
