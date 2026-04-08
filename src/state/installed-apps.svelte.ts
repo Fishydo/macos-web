@@ -37,7 +37,7 @@ export const create_web_app = (value: string, options: WebAppInstallOptions = {}
 	const cleanHost = sanitize(parsed.hostname || parsed.host || url);
 	const id = options.id ? sanitize(options.id) : `webapp-${cleanHost || `site-${Date.now()}`}`;
 	const title = options.appname?.trim() || cleanHost || parsed.hostname || 'Web App';
-	const proxy_url = `/staticsjv2/embed.html#${url}`;
+	const proxy_url = `/staticsjv2/index.html#${encodeURIComponent(url)}`;
 	const icon = options.imageurl?.trim() || '/app-icons/safari/256.webp';
 
 	return {
