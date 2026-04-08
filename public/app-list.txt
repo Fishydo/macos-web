@@ -1,1 +1,0 @@
-app1 url="lcc-math.pages.dev" appname="lcc-games" imageurl="/app-icons/calculator/256.png"

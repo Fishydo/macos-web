@@ -2,7 +2,7 @@
 
 <script lang="ts">
 	import { elevation } from '🍎/actions';
-	import { get_all_apps_config } from '🍎/configs/apps/apps-config';
+	import { apps_config } from '🍎/configs/apps/apps-config';
 	import { apps } from '🍎/state/apps.svelte';
 	import { system_needs_update } from '🍎/state/system.svelte';
 	import { is_dock_hidden } from '🍎/state/dock.svelte';
@@ -59,7 +59,7 @@
 		onmousemove={(event) => (dock_mouse_x = event.x)}
 		onmouseleave={() => (dock_mouse_x = null)}
 	>
-		{#each Object.entries(get_all_apps_config()) as [appID, config]}
+		{#each Object.entries(apps_config) as [appID, config]}
 			{#if config.dock_breaks_before}
 				<div class="divider" aria-hidden="true"></div>
 			{/if}

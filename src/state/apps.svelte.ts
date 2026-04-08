@@ -1,4 +1,6 @@
-export type AppID = string;
+import type { apps_config } from '🍎/configs/apps/apps-config';
+
+export type AppID = keyof typeof apps_config;
 
 export const apps = $state({
 	open: {
@@ -6,16 +8,23 @@ export const apps = $state({
 		finder: true,
 		vscode: false,
 		calculator: false,
+		// safari: false,
 		appstore: false,
-		'system-preferences': false,
 		calendar: false,
+		'system-preferences': false,
+
 		'purus-twitter': false,
 		'view-source': true,
+
 		vercel: true,
 	} as Record<AppID, boolean>,
 
-	active: 'finder' as AppID,
+	active: 'finder' satisfies AppID,
 
+	/**
+	 * Maximum zIndex for the active app
+	 * Initialize with -2, so that it becomes 0 when initialised
+	 */
 	active_z_index: -2,
 
 	z_indices: {
@@ -23,11 +32,14 @@ export const apps = $state({
 		finder: 0,
 		vscode: 0,
 		calculator: 0,
+		// safari: 0,
 		appstore: 0,
-		'system-preferences': 0,
 		calendar: 0,
+		'system-preferences': 0,
+
 		'purus-twitter': 0,
 		'view-source': 0,
+
 		vercel: 0,
 	} as Record<AppID, number>,
 
@@ -38,11 +50,14 @@ export const apps = $state({
 		finder: false,
 		vscode: false,
 		calculator: false,
+		// safari: false,
 		appstore: false,
-		'system-preferences': false,
 		calendar: false,
+		'system-preferences': false,
+
 		'purus-twitter': false,
 		'view-source': false,
+
 		vercel: false,
 	} as Record<AppID, boolean>,
 });

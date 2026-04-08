@@ -28,10 +28,9 @@
 	import { sineInOut } from 'svelte/easing';
 	import { spring, tweened } from 'svelte/motion';
 	import { elevation } from '🍎/actions';
-	import { get_all_apps_config } from '🍎/configs/apps/apps-config.ts';
+	import { apps_config } from '🍎/configs/apps/apps-config.ts';
 	import { apps, type AppID } from '🍎/state/apps.svelte.ts';
 	import { preferences } from '🍎/state/preferences.svelte.ts';
-	import { get_web_app_by_id } from '🍎/state/installed-apps.svelte.ts';
 
 	const {
 		mouse_x,
@@ -86,11 +85,11 @@
 		raf = requestAnimationFrame(animate);
 	});
 
-	const appConfig = $derived(get_all_apps_config()[app_id]);
-	const title = $derived(appConfig?.title ?? app_id);
-	const shouldOpenWindow = $derived(appConfig?.should_open_window ?? true);
-	const externalAction = $derived(appConfig?.external_action);
-	const icon = $derived(get_web_app_by_id(app_id)?.icon ?? `/app-icons/${app_id}/256.webp`);
+	const {
+		title,
+		should_open_window: shouldOpenWindow,
+		external_action: externalAction,
+	} = apps_config[app_id];
 
 	// Spring animation for the click animation
 	const appOpenIconBounceTransform = tweened(0, {
@@ -147,11 +146,10 @@
 	<span style:transform="translate(0, {$appOpenIconBounceTransform}px)">
 		<img
 			bind:this={image_el}
-			src={icon}
+			src="/app-icons/{app_id}/256.webp"
 			alt="{title} app"
 			style:width="{$width_px / 16}rem"
 			draggable="false"
-			onerror={(event) => ((event.currentTarget as HTMLImageElement).src = '/app-icons/safari/256.webp')}
 		/>
 	</span>
 
