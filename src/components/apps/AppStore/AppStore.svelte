@@ -1,80 +1,173 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { sleep } from '🍎/helpers/sleep';
 	import type { AppID } from '🍎/state/apps.svelte.ts';
-	import { preferences } from '🍎/state/preferences.svelte.ts';
-	import { spring } from '🍎/state/spring.svelte.ts';
+	import { apps } from '🍎/state/apps.svelte.ts';
+	import {
+		installed_web_apps,
+		install_web_app,
+		to_installable_url,
+	} from '🍎/state/installed-apps.svelte.ts';
 
 	const { app_id }: { app_id: AppID } = $props();
 
-	const motion_val = spring(0, { damping: 0.28, stiffness: 0.1 });
+	let input_url = $state('');
+	let error = $state('');
 
-	onMount(async () => {
-		await sleep(100);
+	const install = () => {
+		error = '';
 
-		motion_val.value = 1;
-	});
+		try {
+			const normalized = to_installable_url(input_url);
+			const installed = install_web_app(normalized);
 
-	const image_transform = $derived(
-		!preferences.reduced_motion
-			? `rotate(${180 * (motion_val.value + 1)}deg) scale(${motion_val.value}) translateZ(0px)`
-			: 'initial',
-	);
+			apps.open[installed.id] = true;
+			apps.active = installed.id;
+
+			input_url = '';
+		} catch {
+			error = 'Enter a valid URL like lcc-math.pages.dev or https://example.com';
+		}
+	};
+
+	const openApp = (targetAppID: string) => {
+		apps.open[targetAppID] = true;
+		apps.active = targetAppID;
+	};
 </script>
 
 <section class="container">
-	<header class="titlebar app-window-drag-handle"></header>
+	<header class="titlebar app-window-drag-handle">
+		<h1>App Store</h1>
+	</header>
+
 	<section class="main-area">
-		<img
-			style:transform={image_transform}
-			src="/app-icons/{app_id}/256.webp"
-			alt="Placeholder App"
-		/>
+		<div class="install-card">
+			<label for="url-input">Install a web app URL</label>
+			<div class="install-row">
+				<input
+					id="url-input"
+					bind:value={input_url}
+					placeholder="lcc-math.pages.dev"
+					onkeydown={(event) => event.key === 'Enter' && install()}
+				/>
+				<button onclick={install}>Install</button>
+			</div>
+			{#if error}
+				<p class="error">{error}</p>
+			{/if}
+		</div>
 
-		<br />
-
-		<h1 style:display="flex" style:align-items="center" style:gap="0.5rem">
-			Nothing here yet <img
-				style="height: 1em; width: auto; transform: translateY(0.1em);"
-				src="/emojis/wink.png"
-				alt="Wink Emoji"
-			/>
-		</h1>
+		<div class="apps-list">
+			<h2>Installed apps</h2>
+			{#if installed_web_apps.length === 0}
+				<p class="empty">No apps installed yet.</p>
+			{:else}
+				{#each installed_web_apps as webApp}
+					<button class="installed-app" onclick={() => openApp(webApp.id)}>
+						<img src={webApp.icon} alt={webApp.title} />
+						<div>
+							<p class="name">{webApp.title}</p>
+							<p class="url">{webApp.url}</p>
+						</div>
+					</button>
+				{/each}
+			{/if}
+		</div>
 	</section>
 </section>
 
 <style>
 	.container {
 		background-color: var(--system-color-light);
-
 		border-radius: inherit;
+		height: 100%;
+		display: grid;
+		grid-template-rows: 3.2rem 1fr;
 	}
 
 	.titlebar {
-		padding: 1rem 1rem;
+		display: flex;
+		align-items: center;
+		padding-left: 5rem;
+	}
 
-		width: 100%;
-
-		position: absolute;
-		top: 0;
-		left: 0;
+	h1 {
+		font-size: 1rem;
+		color: var(--system-color-light-contrast);
 	}
 
 	.main-area {
-		font-size: 1.618rem;
+		padding: 1rem;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1rem;
+		overflow: auto;
+	}
+
+	.install-card {
+		padding: 1rem;
+		border-radius: 0.8rem;
+		background: hsla(var(--system-color-dark-hsl), 0.08);
+		display: grid;
+		gap: 0.8rem;
+	}
+
+	.install-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 0.5rem;
+	}
+
+	input {
+		background: white;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.2);
+		color: #111;
+		padding: 0.55rem 0.7rem;
+		border-radius: 0.45rem;
+	}
+
+	button {
+		border-radius: 0.5rem;
+		padding: 0.5rem 0.9rem;
+		background: hsl(210deg 90% 52%);
+		color: white;
+		font-weight: 500;
+	}
+
+	.apps-list {
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	h2 {
+		font-size: 0.95rem;
+		font-weight: 600;
 		color: var(--system-color-light-contrast);
+	}
 
-		height: 100%;
-		width: 100%;
+	.empty,
+	.error,
+	.url {
+		color: hsla(var(--system-color-dark-hsl), 0.7);
+		font-size: 0.85rem;
+	}
 
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
+	.installed-app {
+		display: grid;
+		grid-template-columns: 2.3rem 1fr;
+		gap: 0.7rem;
+		text-align: left;
+		background: hsla(var(--system-color-light-hsl), 0.55);
+		color: var(--system-color-light-contrast);
 		align-items: center;
 	}
 
-	img {
-		max-width: 8rem;
-		aspect-ratio: 1 / 1;
+	.installed-app img {
+		width: 2.3rem;
+		height: 2.3rem;
+		border-radius: 0.55rem;
+	}
+
+	.name {
+		font-weight: 600;
 	}
 </style>

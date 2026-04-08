@@ -1,4 +1,5 @@
 import { create_app_config } from '🍎/helpers/create-app-config.ts';
+import { get_web_apps_config } from '🍎/state/installed-apps.svelte.ts';
 
 const wallpapers = create_app_config({
 	title: 'Wallpapers',
@@ -37,19 +38,10 @@ const finder = create_app_config({
 	title: 'Finder',
 	resizable: true,
 
-	// dockBreaksBefore: true,
 	should_open_window: false,
 });
 
-const safari = create_app_config({
-	title: 'Safari',
-	resizable: true,
-});
 
-const systemPreferences = create_app_config({
-	title: 'System Preferences',
-	resizable: true,
-});
 
 const purusTwitter = create_app_config({
 	title: `About the Developer`,
@@ -92,12 +84,13 @@ export const apps_config = {
 	calendar,
 	vscode,
 	appstore,
-	// safari,
-
-	// 'system-preferences': systemPreferences,
-
 	'purus-twitter': purusTwitter,
 	'view-source': viewSource,
-
 	vercel,
 };
+
+export const get_all_apps_config = () => ({
+	...apps_config,
+	...get_web_apps_config(),
+});
+

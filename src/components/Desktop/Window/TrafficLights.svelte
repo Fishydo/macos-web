@@ -2,7 +2,7 @@
 	import CloseIcon from '🍎/components/SVG/traffic-lights/CloseSVG.svelte';
 	import GreenLight from '🍎/components/SVG/traffic-lights/GreenLight.svelte';
 	import MinimizeSvg from '🍎/components/SVG/traffic-lights/MinimizeSVG.svelte';
-	import { apps_config } from '🍎/configs/apps/apps-config.ts';
+	import { get_all_apps_config } from '🍎/configs/apps/apps-config.ts';
 	import { apps, type AppID } from '🍎/state/apps.svelte.ts';
 
 	const {
@@ -16,7 +16,7 @@
 	<button class="close-light" onclick={on_close_app}> <CloseIcon /> </button>
 	<button class="minimize-light"> <MinimizeSvg /> </button>
 	<button class="stretch-light" onclick={on_maximize_click}>
-		<GreenLight expandable={apps_config[app_id].expandable} />
+		<GreenLight expandable={get_all_apps_config()[app_id]?.expandable} />
 	</button>
 </div>
 
