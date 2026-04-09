@@ -75,4 +75,25 @@ export const get_web_apps_config = () =>
 		]),
 	);
 
+
+const normalize_installed_apps = () => {
+	for (let index = 0; index < installed_web_apps.length; index += 1) {
+		const app = installed_web_apps[index];
+		const normalized = create_web_app(app.url, {
+			id: app.id,
+			appname: app.title,
+			imageurl: app.icon,
+		});
+		if (
+			normalized.proxy_url !== app.proxy_url ||
+			normalized.title !== app.title ||
+			normalized.icon !== app.icon
+		) {
+			installed_web_apps[index] = normalized;
+		}
+	}
+};
+
+normalize_installed_apps();
+
 export const get_web_app_by_id = (app_id: string) => installed_web_apps.find((app) => app.id === app_id);
