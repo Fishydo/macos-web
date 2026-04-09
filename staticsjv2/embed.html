@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Embed</title>
+    <script src="./config.js"></script>
+    <script src="./scripts/background.js"></script>
+    <script src="./scripts/settings.js"></script>
+    <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/background.css">
     <link rel="stylesheet" href="style.css">
-    <script>
-        window.SITE_CONFIG = window.SITE_CONFIG || {
-            defaultWisp: "wss://glseries.net/wisp/",
-            wispServers: [{ name: "GLSeries", url: "wss://glseries.net/wisp/" }]
-        };
-    </script>
 
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
@@ -82,7 +81,7 @@
         async function initializeScramjet() {
             if (scramjetInstance) return scramjetInstance;
 
-            const basePath = location.pathname.replace(/[^/]*$/, '') + '/';
+            const basePath = location.pathname.replace(/[^/]*$/, '');
             const { ScramjetController } = $scramjetLoadController();
 
             scramjetInstance = new ScramjetController({
@@ -101,7 +100,7 @@
         async function initializeConnection() {
             if (connectionInstance) return connectionInstance;
 
-            const basePath = location.pathname.replace(/[^/]*$/, '') + '/';
+            const basePath = location.pathname.replace(/[^/]*$/, '');
             const wispUrl = localStorage.getItem("proxServer") || DEFAULT_WISP;
 
             connectionInstance = new BareMux.BareMuxConnection(basePath + "bareworker.js");
@@ -112,7 +111,7 @@
         async function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
-                    const basePath = location.pathname.replace(/[^/]*$/, '') + '/';
+                    const basePath = location.pathname.replace(/[^/]*$/, '');
                     const registration = await navigator.serviceWorker.register(basePath + 'sw.js', { scope: basePath });
                     await navigator.serviceWorker.ready;
 
@@ -145,7 +144,7 @@
             }
         }
 
-        async function initialize(){const targetUrl=window.location.hash.substring(1);const skipLoading=new URLSearchParams(window.location.search).get('skip')!==null;const basePath=location.pathname.replace(/[^/]*$/,'')+'/';if(!targetUrl)return showError('noUrl');if(!isValidUrl(targetUrl))return showError('invalidUrl',targetUrl);if(skipLoading){els.skipBtn.style.display='inline-block';els.skipBtn.onclick=showContent}
+        async function initialize(){const targetUrl=window.location.hash.substring(1);const skipLoading=new URLSearchParams(window.location.search).get('skip')!==null;const basePath=location.pathname.replace(/[^/]*$/,'');if(!targetUrl)return showError('noUrl');if(!isValidUrl(targetUrl))return showError('invalidUrl',targetUrl);if(skipLoading){els.skipBtn.style.display='inline-block';els.skipBtn.onclick=showContent}
             try{await registerServiceWorker();const scramjet=await initializeScramjet();await initializeConnection();els.loadingTitle.textContent='Loading Site';els.loadingUrl.textContent=targetUrl;const activeFrame=scramjet.createFrame();activeFrame.frame.id='embed-frame';els.iframeContainer.appendChild(activeFrame.frame);activeFrame.frame.addEventListener('load',showContent);setTimeout(()=>{els.skipBtn.style.display='inline-block';els.skipBtn.onclick=showContent},2000);activeFrame.go(targetUrl)}catch(err){console.error('Embed Error:',err);showError(getErrorType(err.message),targetUrl)}}
         els.retryBtn.onclick=()=>location.reload();
 
