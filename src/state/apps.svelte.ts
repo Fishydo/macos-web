@@ -11,7 +11,7 @@ export const apps = $state({
 		// safari: false,
 		appstore: false,
 		calendar: false,
-		// 'system-preferences': false,
+		'system-preferences': false,
 
 		'purus-twitter': false,
 		'view-source': true,
@@ -35,7 +35,7 @@ export const apps = $state({
 		// safari: 0,
 		appstore: 0,
 		calendar: 0,
-		// 'system-preferences': 0,
+		'system-preferences': 0,
 
 		'purus-twitter': 0,
 		'view-source': 0,
@@ -53,7 +53,7 @@ export const apps = $state({
 		// safari: false,
 		appstore: false,
 		calendar: false,
-		// 'system-preferences': false,
+		'system-preferences': false,
 
 		'purus-twitter': false,
 		'view-source': false,
