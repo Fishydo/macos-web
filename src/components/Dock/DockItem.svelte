@@ -29,7 +29,7 @@
 	import { spring, tweened } from 'svelte/motion';
 	import { elevation } from '🍎/actions';
 	import { get_app_icon_path } from '🍎/configs/apps/app-icons.config.ts';
-	import { apps_config } from '🍎/configs/apps/apps-config.ts';
+	import { get_runtime_app_config } from '🍎/configs/apps/runtime-apps.ts';
 	import { apps, type AppID } from '🍎/state/apps.svelte.ts';
 	import { preferences } from '🍎/state/preferences.svelte.ts';
 
@@ -90,7 +90,7 @@
 		title,
 		should_open_window: shouldOpenWindow,
 		external_action: externalAction,
-	} = apps_config[app_id];
+	} = get_runtime_app_config(app_id);
 
 	// Spring animation for the click animation
 	const appOpenIconBounceTransform = tweened(0, {

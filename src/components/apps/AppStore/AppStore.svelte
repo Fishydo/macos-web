@@ -6,6 +6,14 @@
 	import { preferences } from '🍎/state/preferences.svelte.ts';
 	import { spring } from '🍎/state/spring.svelte.ts';
 	import { should_show_notch } from '🍎/state/menubar.svelte.ts';
+	import {
+		add_proxy_install,
+		get_proxy_install_from_id,
+		is_proxy_app_id,
+		load_proxy_installs,
+		proxy_apps,
+		type ProxyInstall,
+	} from '🍎/state/proxy-apps.svelte';
 	import embed_html from '../../../../staticsjv2/embed.html?raw';
 
 	const { app_id }: { app_id: AppID } = $props();
@@ -27,25 +35,21 @@
 	const is_app_installer = $derived(app_id === 'appstore');
 	const is_settings = $derived(app_id === 'system-preferences');
 
-	type ProxyInstall = {
-		title: string;
-		target_url: string;
-	};
-
-	const PROXY_INSTALL_KEY = 'macos:proxy-installs';
 	const base_url = import.meta.env.BASE_URL;
 	const default_installables: ProxyInstall[] = [
-		{ title: 'LCC Math', target_url: 'https://lcc-math.pages.dev' },
-		{ title: 'Example', target_url: 'https://example.com' },
+		{ id: 'proxy:lcc-math', title: 'LCC Math', target_url: 'https://lcc-math.pages.dev' },
+		{ id: 'proxy:example', title: 'Example', target_url: 'https://example.com' },
 	];
 
 	const current_installations = $state<Record<string, boolean>>({});
 	let custom_title = $state('');
 	let custom_url = $state('');
 	let install_error = $state('');
-	let proxy_installs = $state<ProxyInstall[]>([]);
 	let active_proxy = $state<ProxyInstall | null>(null);
 	let active_srcdoc = $state<string | null>(null);
+	const selected_proxy_install = $derived(
+		is_proxy_app_id(app_id) ? get_proxy_install_from_id(app_id) ?? null : null,
+	);
 
 	function normalize_url(input: string): string | null {
 		const maybe_url = input.trim();
@@ -67,18 +71,16 @@
 		return with_base.replace('<body>', `<body>${startup_script}`);
 	}
 
-	function save_installs() {
-		localStorage.setItem(PROXY_INSTALL_KEY, JSON.stringify(proxy_installs));
-	}
-
 	function add_install(install: ProxyInstall) {
-		if (proxy_installs.some((app) => app.title === install.title || app.target_url === install.target_url)) {
+		if (proxy_apps.installs.some((app) => app.title === install.title || app.target_url === install.target_url)) {
 			return;
 		}
 
-		proxy_installs = [...proxy_installs, install];
+		add_proxy_install({
+			title: install.title,
+			target_url: install.target_url,
+		});
 		current_installations[install.title] = true;
-		save_installs();
 	}
 
 	function install_default_app(install: ProxyInstall) {
@@ -95,6 +97,7 @@
 		}
 
 		add_install({
+			id: '',
 			title: custom_title.trim() || new URL(normalized_url).hostname,
 			target_url: normalized_url,
 		});
@@ -113,14 +116,21 @@
 		active_srcdoc = null;
 	}
 
-	onMount(() => {
-		const saved_installs_raw = localStorage.getItem(PROXY_INSTALL_KEY);
-		const saved_installs = saved_installs_raw ? (JSON.parse(saved_installs_raw) as ProxyInstall[]) : [];
+	$effect(() => {
+		if (!selected_proxy_install) return;
+		open_proxy_app(selected_proxy_install);
+	});
 
-		proxy_installs = saved_installs;
+	onMount(() => {
+		load_proxy_installs();
+		const saved_installs = proxy_apps.installs;
 
 		for (const app of default_installables) {
 			current_installations[app.title] = saved_installs.some((saved) => saved.title === app.title);
+		}
+
+		if (selected_proxy_install) {
+			open_proxy_app(selected_proxy_install);
 		}
 	});
 </script>
@@ -128,7 +138,15 @@
 <section class="container">
 	<header class="titlebar app-window-drag-handle"></header>
 	<section class="main-area">
-		{#if is_app_installer}
+		{#if selected_proxy_install && active_srcdoc}
+			<section class="embed-container fullscreen">
+				<div class="embed-toolbar">
+					<strong>{selected_proxy_install.title}</strong>
+					<span>{selected_proxy_install.target_url}</span>
+				</div>
+				<iframe title={selected_proxy_install.title} srcdoc={active_srcdoc}></iframe>
+			</section>
+		{:else if is_app_installer}
 			<h1>App Installer</h1>
 			<p>Install proxy apps and run them inside an embedded app container.</p>
 			<div class="cards">
@@ -156,9 +174,9 @@
 					<p class="error">{install_error}</p>
 				{/if}
 			</div>
-			{#if proxy_installs.length}
+			{#if proxy_apps.installs.length}
 				<div class="cards installed-list">
-					{#each proxy_installs as app}
+					{#each proxy_apps.installs as app}
 						<article class="card">
 							<h2>{app.title}</h2>
 							<p class="meta">{app.target_url}</p>
@@ -347,6 +365,10 @@
 		background: #000;
 		display: grid;
 		grid-template-rows: auto 1fr;
+	}
+
+	.fullscreen {
+		height: min(80vh, 860px);
 	}
 
 	.embed-toolbar {
