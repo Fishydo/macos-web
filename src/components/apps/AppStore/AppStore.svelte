@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { sleep } from '🍎/helpers/sleep';
+	import { get_app_icon_path } from '🍎/configs/apps/app-icons.config.ts';
 	import type { AppID } from '🍎/state/apps.svelte.ts';
 	import { preferences } from '🍎/state/preferences.svelte.ts';
 	import { spring } from '🍎/state/spring.svelte.ts';
@@ -93,7 +94,7 @@
 		{:else}
 			<img
 				style:transform={image_transform}
-				src="/app-icons/{app_id}/256.webp"
+				src={get_app_icon_path(app_id)}
 				alt="Placeholder App"
 			/>
 
