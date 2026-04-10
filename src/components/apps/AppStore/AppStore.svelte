@@ -6,6 +6,7 @@
 	import { preferences } from '🍎/state/preferences.svelte.ts';
 	import { spring } from '🍎/state/spring.svelte.ts';
 	import { should_show_notch } from '🍎/state/menubar.svelte.ts';
+	import { apps } from '🍎/state/apps.svelte.ts';
 	import {
 		add_proxy_install,
 		get_proxy_install_from_id,
@@ -47,6 +48,11 @@
 	let install_error = $state('');
 	let active_proxy = $state<ProxyInstall | null>(null);
 	let active_srcdoc = $state<string | null>(null);
+	let proxy_wisp = $state('');
+	let custom_wisp = $state('');
+	let custom_wisp_error = $state('');
+	let custom_wisps = $state<string[]>([]);
+	let proxy_autoswitch = $state(true);
 	const selected_proxy_install = $derived(
 		is_proxy_app_id(app_id) ? get_proxy_install_from_id(app_id) ?? null : null,
 	);
@@ -59,6 +65,18 @@
 		try {
 			const parsed = new URL(with_scheme);
 			return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function normalize_wisp_url(input: string): string | null {
+		const maybe_url = input.trim();
+		if (!maybe_url) return null;
+
+		try {
+			const parsed = new URL(maybe_url);
+			return parsed.protocol === 'wss:' ? parsed.toString() : null;
 		} catch {
 			return null;
 		}
@@ -111,9 +129,56 @@
 		active_srcdoc = create_embed_srcdoc(install.target_url);
 	}
 
+	function launch_installed_proxy_app(install: ProxyInstall) {
+		apps.open[install.id] = true;
+		apps.active = install.id;
+	}
+
 	function close_proxy_app() {
 		active_proxy = null;
 		active_srcdoc = null;
+	}
+
+	function load_proxy_settings() {
+		if (typeof window === 'undefined') return;
+		proxy_wisp = localStorage.getItem('proxServer') ?? '';
+		custom_wisps = JSON.parse(localStorage.getItem('customWisps') ?? '[]');
+		proxy_autoswitch = localStorage.getItem('wispAutoswitch') !== 'false';
+	}
+
+	function save_proxy_settings() {
+		if (typeof window === 'undefined') return;
+		const normalized_wisp = normalize_wisp_url(proxy_wisp);
+		if (proxy_wisp.trim() && !normalized_wisp) return;
+
+		if (normalized_wisp) {
+			localStorage.setItem('proxServer', normalized_wisp);
+			proxy_wisp = normalized_wisp;
+		} else {
+			localStorage.removeItem('proxServer');
+			proxy_wisp = '';
+		}
+
+		localStorage.setItem('customWisps', JSON.stringify(custom_wisps));
+		localStorage.setItem('wispAutoswitch', String(proxy_autoswitch));
+	}
+
+	function add_custom_wisp() {
+		custom_wisp_error = '';
+		const normalized_wisp = normalize_wisp_url(custom_wisp);
+		if (!normalized_wisp) {
+			custom_wisp_error = 'Please enter a valid secure websocket URL (wss://...)';
+			return;
+		}
+		if (custom_wisps.includes(normalized_wisp)) return;
+		custom_wisps = [...custom_wisps, normalized_wisp];
+		custom_wisp = '';
+		save_proxy_settings();
+	}
+
+	function remove_custom_wisp(wisp: string) {
+		custom_wisps = custom_wisps.filter((entry) => entry !== wisp);
+		save_proxy_settings();
 	}
 
 	$effect(() => {
@@ -123,6 +188,7 @@
 
 	onMount(() => {
 		load_proxy_installs();
+		load_proxy_settings();
 		const saved_installs = proxy_apps.installs;
 
 		for (const app of default_installables) {
@@ -182,6 +248,7 @@
 							<p class="meta">{app.target_url}</p>
 							<div class="actions">
 								<button onclick={() => open_proxy_app(app)}>Launch</button>
+								<button onclick={() => launch_installed_proxy_app(app)}>Open App Window</button>
 							</div>
 						</article>
 					{/each}
@@ -219,6 +286,41 @@
 					<span>Show Notch</span>
 					<input type="checkbox" bind:checked={should_show_notch.value} />
 				</label>
+				<div class="setting-panel">
+					<h2>Proxy/Wisp Settings</h2>
+					<p class="meta">
+						These are used by installed proxy apps. Open app windows use each app's saved URL automatically.
+					</p>
+					<div class="form-row wisp-row">
+						<input type="text" placeholder="Default wisp (wss://...)" bind:value={proxy_wisp} />
+						<button onclick={save_proxy_settings}>Save</button>
+					</div>
+					<label class="setting-row">
+						<span>Auto-switch Wisps</span>
+						<input
+							type="checkbox"
+							bind:checked={proxy_autoswitch}
+							onchange={() => save_proxy_settings()}
+						/>
+					</label>
+					<div class="form-row wisp-row">
+						<input type="text" placeholder="Add custom wisp (wss://...)" bind:value={custom_wisp} />
+						<button onclick={add_custom_wisp}>Add</button>
+					</div>
+					{#if custom_wisp_error}
+						<p class="error">{custom_wisp_error}</p>
+					{/if}
+					{#if custom_wisps.length}
+						<ul class="wisp-list">
+							{#each custom_wisps as wisp}
+								<li>
+									<span>{wisp}</span>
+									<button onclick={() => remove_custom_wisp(wisp)}>Remove</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 			</div>
 		{:else}
 			<img
@@ -407,5 +509,44 @@
 		padding: 0.75rem 1rem;
 		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
 		border-radius: 0.75rem;
+	}
+
+	.setting-panel {
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		font-size: 1rem;
+	}
+
+	.setting-panel h2 {
+		font-size: 1rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.wisp-row {
+		grid-template-columns: 1fr auto;
+		margin-top: 0.5rem;
+	}
+
+	.wisp-list {
+		margin-top: 0.75rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.wisp-list li {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 1rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.12);
+		border-radius: 0.5rem;
+		padding: 0.5rem 0.65rem;
+	}
+
+	.wisp-list span {
+		font-size: 0.8rem;
+		opacity: 0.8;
+		word-break: break-all;
 	}
 </style>
