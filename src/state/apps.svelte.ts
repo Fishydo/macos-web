@@ -1,6 +1,16 @@
-import type { apps_config } from '🍎/configs/apps/apps-config';
+export type CoreAppID =
+	| 'wallpapers'
+	| 'finder'
+	| 'vscode'
+	| 'calculator'
+	| 'appstore'
+	| 'calendar'
+	| 'system-preferences'
+	| 'purus-twitter'
+	| 'view-source'
+	| 'vercel';
 
-export type AppID = keyof typeof apps_config;
+export type AppID = CoreAppID | string;
 
 export const apps = $state({
 	open: {

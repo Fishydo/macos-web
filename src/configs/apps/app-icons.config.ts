@@ -1,6 +1,4 @@
-import type { AppID } from '🍎/state/apps.svelte.ts';
-
-const app_icon_path_map: Record<AppID, string> = {
+const app_icon_path_map: Record<string, string> = {
 	wallpapers: '/app-icons/wallpapers/256.webp',
 	finder: '/app-icons/finder/256.webp',
 	vscode: '/app-icons/vscode/256.webp',
@@ -13,4 +11,5 @@ const app_icon_path_map: Record<AppID, string> = {
 	vercel: '/app-icons/vercel/256.webp',
 };
 
-export const get_app_icon_path = (app_id: AppID) => app_icon_path_map[app_id];
+export const get_app_icon_path = (app_id: string) =>
+	app_icon_path_map[app_id] ?? app_icon_path_map.appstore;
