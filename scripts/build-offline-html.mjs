@@ -23,6 +23,7 @@ const MIME_TYPES = {
 	'.webp': 'image/webp',
 	'.gif': 'image/gif',
 	'.ico': 'image/x-icon',
+	'.avif': 'image/avif',
 	'.woff': 'font/woff',
 	'.woff2': 'font/woff2',
 	'.ttf': 'font/ttf',
@@ -30,7 +31,13 @@ const MIME_TYPES = {
 	'.mp3': 'audio/mpeg',
 };
 
-const isRemote = (value) => /^(?:[a-z]+:)?\/\//i.test(value) || value.startsWith('data:') || value.startsWith('#');
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico', 'avif'];
+
+const isRemote = (value) =>
+	/^(?:[a-z]+:)?\/\//i.test(value) ||
+	value.startsWith('data:') ||
+	value.startsWith('#') ||
+	value.startsWith('blob:');
 
 function resolveLocalPath(value, baseDir) {
 	if (!value || isRemote(value)) return null;
@@ -43,8 +50,7 @@ function toDataUri(filePath) {
 	const ext = extname(filePath).toLowerCase();
 	const mime = MIME_TYPES[ext] ?? 'application/octet-stream';
 	const data = readFileSync(filePath);
-	const encoded = data.toString('base64');
-	return `data:${mime};base64,${encoded}`;
+	return `data:${mime};base64,${data.toString('base64')}`;
 }
 
 function inlineCssAssets(css, cssDir) {
@@ -59,9 +65,41 @@ function inlineCssAssets(css, cssDir) {
 	});
 }
 
+function inlineImageReferencesInText(text, baseDir) {
+	const imagePath = IMAGE_EXTENSIONS.join('|');
+	const imagePathRegex = new RegExp(
+		String.raw`(["'\`])((?:\.{0,2}\/|\/)[^"'\`\s)]+\.(?:${imagePath})(?:\?[^"'\`\s)]*)?)(\1)`,
+		'gi',
+	);
+
+	return text.replace(imagePathRegex, (full, quote, pathValue, endQuote) => {
+		if (isRemote(pathValue)) return full;
+		const assetPath = resolveLocalPath(pathValue, baseDir);
+		if (!assetPath || !existsSync(assetPath)) return full;
+		return `${quote}${toDataUri(assetPath)}${endQuote}`;
+	});
+}
+
+function inlineSrcsetValue(srcset, baseDir) {
+	const candidates = srcset.split(',').map((entry) => entry.trim()).filter(Boolean);
+	if (!candidates.length) return srcset;
+
+	const updated = candidates.map((candidate) => {
+		const [urlPart, descriptor] = candidate.split(/\s+/, 2);
+		if (!urlPart || isRemote(urlPart)) return candidate;
+		const assetPath = resolveLocalPath(urlPart, baseDir);
+		if (!assetPath || !existsSync(assetPath)) return candidate;
+		const dataUri = toDataUri(assetPath);
+		return descriptor ? `${dataUri} ${descriptor}` : dataUri;
+	});
+
+	return updated.join(', ');
+}
+
 let html = readFileSync(inputHtml, 'utf8');
 const htmlDir = dirname(inputHtml);
 
+// Inline CSS
 html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, before, href, after) => {
 	if (isRemote(href) || !/rel=["']stylesheet["']/i.test(full)) return full;
 	const cssPath = resolveLocalPath(href, htmlDir);
@@ -71,31 +109,42 @@ html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, befo
 	return `<style data-inline-source="${href}">${css}</style>`;
 });
 
+// Inline JS
 html = html.replace(/<script([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi, (full, before, src, after) => {
 	if (isRemote(src)) return full;
 	const scriptPath = resolveLocalPath(src, htmlDir);
 	if (!scriptPath || !existsSync(scriptPath)) return full;
-	const js = readFileSync(scriptPath, 'utf8');
+	let js = readFileSync(scriptPath, 'utf8');
+	js = inlineImageReferencesInText(js, dirname(scriptPath));
 	const attrs = `${before ?? ''}${after ?? ''}`.replace(/\s*crossorigin(?:=["'][^"']*["'])?/gi, '');
 	return `<script${attrs} data-inline-source="${src}">${js}</script>`;
 });
 
-html = html.replace(/<(img|source)\b([^>]*?)\bsrc=["']([^"']+)["']([^>]*?)>/gi, (full, tag, before, src, after) => {
+// Inline media src
+html = html.replace(/<(img|source|video|audio)\b([^>]*?)\bsrc=["']([^"']+)["']([^>]*?)>/gi, (full, tag, before, src, after) => {
 	if (isRemote(src)) return full;
 	const assetPath = resolveLocalPath(src, htmlDir);
 	if (!assetPath || !existsSync(assetPath)) return full;
-	const dataUri = toDataUri(assetPath);
-	return `<${tag}${before}src="${dataUri}"${after}>`;
+	return `<${tag}${before}src="${toDataUri(assetPath)}"${after}>`;
 });
 
+// Inline srcset
+html = html.replace(/<(img|source|video)\b([^>]*?)\bsrcset=["']([^"']+)["']([^>]*?)>/gi, (full, tag, before, srcset, after) => {
+	const updatedSrcset = inlineSrcsetValue(srcset, htmlDir);
+	return `<${tag}${before}srcset="${updatedSrcset}"${after}>`;
+});
+
+// Inline other links
 html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, before, href, after) => {
 	if (isRemote(href)) return full;
 	if (/rel=["']stylesheet["']/i.test(full)) return full;
 	const assetPath = resolveLocalPath(href, htmlDir);
 	if (!assetPath || !existsSync(assetPath)) return full;
-	const dataUri = toDataUri(assetPath);
-	return `<link${before}href="${dataUri}"${after}>`;
+	return `<link${before}href="${toDataUri(assetPath)}"${after}>`;
 });
+
+// Final pass for inline images in HTML text
+html = inlineImageReferencesInText(html, htmlDir);
 
 writeFileSync(outputHtml, html, 'utf8');
 console.log(`Wrote offline single-file HTML: ${outputHtml}`);
