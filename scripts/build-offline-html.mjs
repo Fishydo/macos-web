@@ -34,7 +34,10 @@ const MIME_TYPES = {
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico', 'avif'];
 
 const isRemote = (value) =>
-	/^(?:[a-z]+:)?\/\//i.test(value) || value.startsWith('data:') || value.startsWith('#') || value.startsWith('blob:');
+	/^(?:[a-z]+:)?\/\//i.test(value) ||
+	value.startsWith('data:') ||
+	value.startsWith('#') ||
+	value.startsWith('blob:');
 
 function resolveLocalPath(value, baseDir) {
 	if (!value || isRemote(value)) return null;
@@ -96,6 +99,7 @@ function inlineSrcsetValue(srcset, baseDir) {
 let html = readFileSync(inputHtml, 'utf8');
 const htmlDir = dirname(inputHtml);
 
+// Inline CSS
 html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, before, href, after) => {
 	if (isRemote(href) || !/rel=["']stylesheet["']/i.test(full)) return full;
 	const cssPath = resolveLocalPath(href, htmlDir);
@@ -105,6 +109,7 @@ html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, befo
 	return `<style data-inline-source="${href}">${css}</style>`;
 });
 
+// Inline JS
 html = html.replace(/<script([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi, (full, before, src, after) => {
 	if (isRemote(src)) return full;
 	const scriptPath = resolveLocalPath(src, htmlDir);
@@ -115,6 +120,7 @@ html = html.replace(/<script([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi, (
 	return `<script${attrs} data-inline-source="${src}">${js}</script>`;
 });
 
+// Inline media src
 html = html.replace(/<(img|source|video|audio)\b([^>]*?)\bsrc=["']([^"']+)["']([^>]*?)>/gi, (full, tag, before, src, after) => {
 	if (isRemote(src)) return full;
 	const assetPath = resolveLocalPath(src, htmlDir);
@@ -122,11 +128,13 @@ html = html.replace(/<(img|source|video|audio)\b([^>]*?)\bsrc=["']([^"']+)["']([
 	return `<${tag}${before}src="${toDataUri(assetPath)}"${after}>`;
 });
 
+// Inline srcset
 html = html.replace(/<(img|source|video)\b([^>]*?)\bsrcset=["']([^"']+)["']([^>]*?)>/gi, (full, tag, before, srcset, after) => {
 	const updatedSrcset = inlineSrcsetValue(srcset, htmlDir);
 	return `<${tag}${before}srcset="${updatedSrcset}"${after}>`;
 });
 
+// Inline other links
 html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, before, href, after) => {
 	if (isRemote(href)) return full;
 	if (/rel=["']stylesheet["']/i.test(full)) return full;
@@ -135,6 +143,7 @@ html = html.replace(/<link([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi, (full, befo
 	return `<link${before}href="${toDataUri(assetPath)}"${after}>`;
 });
 
+// Final pass for inline images in HTML text
 html = inlineImageReferencesInText(html, htmlDir);
 
 writeFileSync(outputHtml, html, 'utf8');
