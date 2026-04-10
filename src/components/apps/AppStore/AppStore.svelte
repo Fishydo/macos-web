@@ -25,9 +25,11 @@
 	const is_app_installer = $derived(app_id === 'appstore');
 	const is_settings = $derived(app_id === 'system-preferences');
 
+	const base_url = import.meta.env.BASE_URL;
+
 	const installables = [
-		{ title: 'Proxy Browser', path: '/staticsjv2/index.html' },
-		{ title: 'Proxy Embed', path: '/staticsjv2/embed.html#https://example.com' },
+		{ title: 'Proxy Browser', path: `${base_url}staticsjv2/index.html` },
+		{ title: 'Proxy Embed', path: `${base_url}staticsjv2/embed.html#https://example.com` },
 	];
 
 	const current_installations = $state<Record<string, boolean>>({});
