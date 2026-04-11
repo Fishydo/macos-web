@@ -2,7 +2,7 @@ import { apps_config } from './apps-config';
 import { type AppConfig, create_app_config } from '🍎/helpers/create-app-config';
 import { get_proxy_install_from_id, proxy_apps } from '🍎/state/proxy-apps.svelte';
 
-const MAX_DOCK_APPS = 4;
+const MAX_DOCK_APPS = 13;
 
 const fallback_config = create_app_config({
 	title: 'App',
