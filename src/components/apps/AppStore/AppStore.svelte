@@ -15,6 +15,7 @@
 		proxy_apps,
 		type ProxyInstall,
 	} from '🍎/state/proxy-apps.svelte';
+	import { can_add_to_dock, get_dock_app_count } from '🍎/configs/apps/runtime-apps';
 	import embed_html from '../../../../staticsjv2/embed.html?raw';
 
 	const { app_id }: { app_id: AppID } = $props();
@@ -56,6 +57,9 @@
 	const selected_proxy_install = $derived(
 		is_proxy_app_id(app_id) ? get_proxy_install_from_id(app_id) ?? null : null,
 	);
+	
+	const dock_app_count = $derived(get_dock_app_count());
+	const can_add_more_to_dock = $derived(can_add_to_dock());
 
 	function normalize_url(input: string): string | null {
 		const maybe_url = input.trim();
@@ -102,11 +106,21 @@
 	}
 
 	function install_default_app(install: ProxyInstall) {
+		if (!can_add_more_to_dock) {
+			install_error = `Dock is full (max ${dock_app_count}/4 apps). Install anyway - app will be accessible via Finder.`;
+			return;
+		}
 		add_install(install);
 	}
 
 	function install_custom_app() {
 		install_error = '';
+		
+		if (!can_add_more_to_dock) {
+			const confirmed = confirm(`Dock is full (max 4 apps). The app will be installed but only accessible via Finder. Continue?`);
+			if (!confirmed) return;
+		}
+		
 		const normalized_url = normalize_url(custom_url);
 
 		if (!normalized_url) {
@@ -215,13 +229,22 @@
 		{:else if is_app_installer}
 			<h1>App Installer</h1>
 			<p>Install proxy apps and run them inside an embedded app container.</p>
+			{#if !can_add_more_to_dock}
+				<div class="dock-limit-notice">
+					<p><strong>Dock Limit Reached:</strong> You can have up to 4 apps in the dock. Additional apps will be installed but only accessible via Finder.</p>
+				</div>
+			{/if}
 			<div class="cards">
 				{#each default_installables as app}
 					<article class="card">
 						<h2>{app.title}</h2>
 						<p class="meta">{app.target_url}</p>
 						<div class="actions">
-							<button onclick={() => install_default_app(app)} disabled={current_installations[app.title]}>
+							<button 
+								onclick={() => install_default_app(app)} 
+								disabled={current_installations[app.title]}
+								class:dock-full={!can_add_more_to_dock && !current_installations[app.title]}
+							>
 								{current_installations[app.title] ? 'Installed' : 'Install'}
 							</button>
 							<button onclick={() => open_proxy_app(app)}>Open</button>
@@ -234,7 +257,7 @@
 				<div class="form-row">
 					<input type="text" placeholder="App name (optional)" bind:value={custom_title} />
 					<input type="text" placeholder="URL or domain (ex: lcc-math.pages.dev)" bind:value={custom_url} />
-					<button onclick={install_custom_app}>Install</button>
+					<button onclick={install_custom_app} class:dock-full={!can_add_more_to_dock}>Install</button>
 				</div>
 				{#if install_error}
 					<p class="error">{install_error}</p>
@@ -344,19 +367,24 @@
 
 <style>
 	.container {
-		background-color: var(--system-color-light);
-
+		background: linear-gradient(135deg, 
+			hsla(var(--system-color-light-hsl), 0.95) 0%, 
+			hsla(var(--system-color-light-hsl), 0.85) 100%);
 		border-radius: inherit;
 	}
 
 	.titlebar {
 		padding: 1rem 1rem;
-
 		width: 100%;
-
 		position: absolute;
 		top: 0;
 		left: 0;
+		background: linear-gradient(180deg, 
+			hsla(var(--system-color-light-hsl), 0.9) 0%, 
+			hsla(var(--system-color-light-hsl), 0.7) 100%);
+		backdrop-filter: blur(20px);
+		border-bottom: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: inherit border-radius inherit 0 0;
 	}
 
 	.main-area {
@@ -370,76 +398,128 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
-		gap: 1rem;
-		padding: 2rem;
+		gap: 1.5rem;
+		padding: 3rem 2rem 2rem;
 		overflow: auto;
 	}
 
 	img {
 		max-width: 8rem;
 		aspect-ratio: 1 / 1;
+		filter: drop-shadow(0 4px 8px hsla(var(--system-color-dark-hsl), 0.2));
+	}
+
+	h1 {
+		font-weight: 600;
+		letter-spacing: -0.02em;
 	}
 
 	.cards {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-		width: min(720px, 100%);
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: 1.25rem;
+		width: min(900px, 100%);
+		max-width: 100%;
 	}
 
 	.card {
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
-		border-radius: 0.75rem;
-		padding: 1rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: 1rem;
+		padding: 1.25rem;
 		font-size: 1rem;
+		background: hsla(var(--system-color-light-hsl), 0.5);
+		backdrop-filter: blur(10px);
+		transition: all 0.2s ease;
+		box-shadow: 0 2px 8px hsla(var(--system-color-dark-hsl), 0.08);
+	}
+
+	.card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 16px hsla(var(--system-color-dark-hsl), 0.12);
+		border-color: hsla(var(--system-color-dark-hsl), 0.2);
 	}
 
 	.card h2 {
-		font-size: 1rem;
-		margin-bottom: 0.75rem;
+		font-size: 1.1rem;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		color: var(--system-color-light-contrast);
 	}
 
 	.meta {
-		font-size: 0.8rem;
-		margin-bottom: 0.75rem;
-		opacity: 0.7;
+		font-size: 0.85rem;
+		margin-bottom: 1rem;
+		opacity: 0.65;
 		word-break: break-all;
+		line-height: 1.4;
 	}
 
 	.actions {
 		display: flex;
 		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
 	button {
-		padding: 0.5rem 0.8rem;
-		border-radius: 0.5rem;
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.2);
-		background: hsla(var(--system-color-light-hsl), 0.7);
+		padding: 0.6rem 1rem;
+		border-radius: 0.625rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
+		background: linear-gradient(180deg, 
+			hsla(var(--system-color-light-hsl), 0.9) 0%, 
+			hsla(var(--system-color-light-hsl), 0.7) 100%);
 		font-size: 0.9rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.15s ease;
+		box-shadow: 0 1px 3px hsla(var(--system-color-dark-hsl), 0.1);
+	}
+
+	button:hover:not(:disabled) {
+		transform: translateY(-1px);
+		box-shadow: 0 2px 6px hsla(var(--system-color-dark-hsl), 0.15);
+		background: linear-gradient(180deg, 
+			hsla(var(--system-color-light-hsl), 0.95) 0%, 
+			hsla(var(--system-color-light-hsl), 0.8) 100%);
+	}
+
+	button:active:not(:disabled) {
+		transform: translateY(0);
 	}
 
 	button:disabled {
-		opacity: 0.6;
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	input {
-		padding: 0.5rem 0.8rem;
-		border-radius: 0.5rem;
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.2);
-		background: hsla(var(--system-color-light-hsl), 0.8);
+		padding: 0.6rem 0.85rem;
+		border-radius: 0.625rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
+		background: hsla(var(--system-color-light-hsl), 0.6);
+		font-size: 0.9rem;
+		transition: all 0.15s ease;
+	}
+
+	input:focus {
+		outline: none;
+		border-color: hsla(var(--system-color-dark-hsl), 0.3);
+		box-shadow: 0 0 0 3px hsla(var(--system-color-dark-hsl), 0.1);
 	}
 
 	.custom-install {
 		width: min(720px, 100%);
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
-		border-radius: 0.75rem;
-		padding: 1rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: 1rem;
+		padding: 1.5rem;
+		background: hsla(var(--system-color-light-hsl), 0.4);
+		backdrop-filter: blur(10px);
+		box-shadow: 0 2px 8px hsla(var(--system-color-dark-hsl), 0.08);
 	}
 
 	.custom-install h2 {
-		font-size: 1rem;
-		margin-bottom: 0.75rem;
+		font-size: 1.1rem;
+		margin-bottom: 1rem;
+		font-weight: 600;
 	}
 
 	.form-row {
@@ -449,24 +529,26 @@
 	}
 
 	.error {
-		margin-top: 0.5rem;
+		margin-top: 0.75rem;
 		color: #cc2f2f;
-		font-size: 0.8rem;
+		font-size: 0.85rem;
+		font-weight: 500;
 	}
 
 	.installed-list {
-		margin-top: 0.5rem;
+		margin-top: 1rem;
 	}
 
 	.embed-container {
 		width: min(100%, 960px);
 		height: min(60vh, 720px);
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.2);
-		border-radius: 0.75rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
+		border-radius: 1rem;
 		overflow: hidden;
 		background: #000;
 		display: grid;
 		grid-template-rows: auto 1fr;
+		box-shadow: 0 4px 24px hsla(var(--system-color-dark-hsl), 0.15);
 	}
 
 	.fullscreen {
@@ -474,12 +556,17 @@
 	}
 
 	.embed-toolbar {
-		font-size: 0.8rem;
-		padding: 0.5rem 0.75rem;
+		font-size: 0.85rem;
+		padding: 0.75rem 1rem;
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		border-bottom: 1px solid hsla(var(--system-color-dark-hsl), 0.2);
+		gap: 1rem;
+		border-bottom: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
+		background: hsla(var(--system-color-light-hsl), 0.9);
+	}
+
+	.embed-toolbar strong {
+		font-weight: 600;
 	}
 
 	.embed-toolbar span {
@@ -498,7 +585,7 @@
 
 	.settings-grid {
 		grid-template-columns: 1fr;
-		max-width: 520px;
+		max-width: 600px;
 	}
 
 	.setting-row {
@@ -506,30 +593,38 @@
 		align-items: center;
 		justify-content: space-between;
 		font-size: 1rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
-		border-radius: 0.75rem;
+		padding: 0.875rem 1.25rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: 0.875rem;
+		background: hsla(var(--system-color-light-hsl), 0.3);
+		transition: all 0.15s ease;
+	}
+
+	.setting-row:hover {
+		background: hsla(var(--system-color-light-hsl), 0.5);
 	}
 
 	.setting-panel {
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.15);
-		border-radius: 0.75rem;
-		padding: 1rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: 1rem;
+		padding: 1.25rem;
 		font-size: 1rem;
+		background: hsla(var(--system-color-light-hsl), 0.3);
 	}
 
 	.setting-panel h2 {
-		font-size: 1rem;
-		margin-bottom: 0.5rem;
+		font-size: 1.05rem;
+		margin-bottom: 0.75rem;
+		font-weight: 600;
 	}
 
 	.wisp-row {
 		grid-template-columns: 1fr auto;
-		margin-top: 0.5rem;
+		margin-top: 0.75rem;
 	}
 
 	.wisp-list {
-		margin-top: 0.75rem;
+		margin-top: 1rem;
 		display: grid;
 		gap: 0.5rem;
 	}
@@ -539,14 +634,60 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 1rem;
-		border: 1px solid hsla(var(--system-color-dark-hsl), 0.12);
-		border-radius: 0.5rem;
-		padding: 0.5rem 0.65rem;
+		border: 1px solid hsla(var(--system-color-dark-hsl), 0.1);
+		border-radius: 0.625rem;
+		padding: 0.625rem 0.75rem;
+		background: hsla(var(--system-color-light-hsl), 0.4);
 	}
 
 	.wisp-list span {
-		font-size: 0.8rem;
+		font-size: 0.85rem;
 		opacity: 0.8;
 		word-break: break-all;
+	}
+
+	/* Section headers */
+	.main-area > h1:first-of-type,
+	.main-area > p:first-of-type {
+		text-align: center;
+		max-width: 600px;
+	}
+
+	.main-area > p:first-of-type {
+		font-size: 1.1rem;
+		opacity: 0.8;
+		margin-top: -0.5rem;
+	}
+
+	/* Dock limit notice */
+	.dock-limit-notice {
+		width: min(720px, 100%);
+		padding: 1rem 1.25rem;
+		background: hsla(24, 85%, 50%, 0.15);
+		border: 1px solid hsla(24, 85%, 50%, 0.3);
+		border-radius: 0.875rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.dock-limit-notice p {
+		font-size: 0.9rem;
+		color: var(--system-color-light-contrast);
+		margin: 0;
+		line-height: 1.5;
+	}
+
+	/* Dock full button style */
+	button.dock-full {
+		background: linear-gradient(180deg, 
+			hsla(24, 85%, 50%, 0.9) 0%, 
+			hsla(24, 85%, 45%, 0.8) 100%);
+		border-color: hsla(24, 85%, 50%, 0.4);
+		color: white;
+	}
+
+	button.dock-full:hover:not(:disabled) {
+		background: linear-gradient(180deg, 
+			hsla(24, 85%, 55%, 0.95) 0%, 
+			hsla(24, 85%, 50%, 0.85) 100%);
 	}
 </style>

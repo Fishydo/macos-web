@@ -2,12 +2,19 @@ import { apps_config } from './apps-config';
 import { type AppConfig, create_app_config } from '🍎/helpers/create-app-config';
 import { get_proxy_install_from_id, proxy_apps } from '🍎/state/proxy-apps.svelte';
 
+const MAX_DOCK_APPS = 4;
+
 const fallback_config = create_app_config({
 	title: 'App',
 });
 
 export function get_runtime_app_ids(): string[] {
-	return [...Object.keys(apps_config), ...proxy_apps.installs.map((app) => app.id)];
+	const staticApps = Object.keys(apps_config);
+	const proxyAppIds = proxy_apps.installs.map((app) => app.id);
+	
+	// Limit dock apps to MAX_DOCK_APPS (static apps first, then proxy apps)
+	const allApps = [...staticApps, ...proxyAppIds];
+	return allApps.slice(0, MAX_DOCK_APPS);
 }
 
 export function get_runtime_app_config(app_id: string): AppConfig {
@@ -25,4 +32,16 @@ export function get_runtime_app_config(app_id: string): AppConfig {
 	}
 
 	return fallback_config;
+}
+
+export function is_app_in_dock(app_id: string): boolean {
+	return get_runtime_app_ids().includes(app_id);
+}
+
+export function get_dock_app_count(): number {
+	return get_runtime_app_ids().length;
+}
+
+export function can_add_to_dock(): boolean {
+	return get_dock_app_count() < MAX_DOCK_APPS;
 }
